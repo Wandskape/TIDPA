@@ -1,6 +1,4 @@
-# Импорт необходимых библиотек
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
@@ -9,30 +7,22 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, classification_report, roc_curve, auc, roc_auc_score, confusion_matrix
-from sklearn.model_selection import GridSearchCV
 
-# Загрузка данных
 data = pd.read_csv('teen_phone_addiction_dataset.csv')
 
 # 1. Предобработка данных
-# Проверка на пропуски
 print("Пропуски в данных:")
 print(data.isnull().sum())
 
-# Проверка типов данных
 print("\nТипы данных:")
 print(data.dtypes)
 
-# Преобразуем целевую переменную в категориальную
-# Создадим 3 категории: низкий (0-4), средний (4-7) и высокий (7-10) уровень зависимости
 data['Addiction_Category'] = pd.cut(data['Addiction_Level'],
                                     bins=[0, 4, 7, 10],
                                     labels=['Low', 'Medium', 'High'])
 
-# Удалим исходный числовой столбец
 data = data.drop('Addiction_Level', axis=1)
 
-# Обработка категориальных признаков
 categorical_cols = ['Name', 'Gender', 'Location', 'School_Grade', 'Phone_Usage_Purpose']
 label_encoders = {}
 for col in categorical_cols:
@@ -40,7 +30,6 @@ for col in categorical_cols:
     data[col] = le.fit_transform(data[col].astype(str))
     label_encoders[col] = le
 
-# Кодируем целевую переменную
 le_target = LabelEncoder()
 data['Addiction_Category'] = le_target.fit_transform(data['Addiction_Category'])
 
@@ -59,21 +48,18 @@ sns.heatmap(data.corr(), cmap='coolwarm', annot=False)
 plt.title('Матрица корреляций')
 plt.show()
 
-# Визуализация зависимостей от целевой переменной
 top_corr = data.corr()['Addiction_Category'].sort_values(ascending=False).head(10)
 plt.figure(figsize=(10, 6))
 sns.barplot(x=top_corr.values, y=top_corr.index)
 plt.title('Наибольшие корреляции с Addiction_Category')
 plt.show()
 
-# 3. Выбор целевого столбца (уже выполнен, y = data['Addiction_Category'])
-
 # 4. Обучение моделей
 # Разделение данных
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
 
 # Логистическая регрессия с регуляризацией
-lr = LogisticRegression(C=0.1, penalty='l2', random_state=42, multi_class='ovr')
+lr = LogisticRegression(C=0.1, penalty='l2', random_state=42)
 lr.fit(X_train, y_train)
 
 # Случайный лес с настройкой гиперпараметров
@@ -92,7 +78,7 @@ plt.figure(figsize=(10, 8))
 for name, model in models.items():
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    report = classification_report(y_test, y_pred, target_names=le_target.classes_)
+    report = classification_report(y_test, y_pred, target_names=le_target.classes_, zero_division=0)
     results[name] = {
         'accuracy': accuracy,
         'report': report
@@ -100,7 +86,7 @@ for name, model in models.items():
     print(f'{name} Accuracy: {accuracy:.4f}')
     print(report)
 
-    # ROC-кривая для многоклассовой классификации (one-vs-rest)
+    # ROC-кривая
     if hasattr(model, "predict_proba"):
         y_prob = model.predict_proba(X_test)
         for i in range(len(le_target.classes_)):
@@ -115,6 +101,6 @@ plt.title('ROC-кривые (многоклассовая классификац
 plt.legend(loc='lower right')
 plt.show()
 
-# Вывод лучшей модели на основе accuracy
+# Вывод лучшей модели
 best_model_name = max(results, key=lambda x: results[x]['accuracy'])
 print(f'Лучшая модель: {best_model_name} с точностью {results[best_model_name]["accuracy"]:.4f}')
